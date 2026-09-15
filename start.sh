@@ -29,5 +29,11 @@ if have 8080; then echo "code-server: 已在运行"; else
     echo "code-server: 未安装"
   fi
 fi
+
+if have 8081; then echo "csproxy: 已在运行"; else
+  (setsid nohup python3 "$SVC/csproxy.py" > "$SVC/logs/csproxy.log" 2>&1 < /dev/null &)
+  echo "csproxy: 已启动"
+fi
+
 sleep 1
 ss -tln | grep -E ":7681 |:8899 |:8080 " || true

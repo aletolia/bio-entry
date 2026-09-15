@@ -6,7 +6,7 @@ local({
   svc <- list(
     list("终端ttyd", 7681),
     list("仪表盘", 8899),
-    list("VSCode", 8080)
+    list("VSCode", 8081)
   )
   out <- character(0)
   for (s in svc) {
