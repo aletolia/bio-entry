@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # csproxy.py — 为 code-server 注入 X-Forwarded-* 头（修复 WebVPN 链路下 WS Origin 检查 403）
+# 原理：rserver 会把 WS 请求的 Origin 改写为 http://172.18.111.15:8787；
+#       code-server 校验 origin == (X-Forwarded-Proto)://(X-Forwarded-Host)。
+#       这里在 WS 升级请求上按 Origin 的头尾镜像注入对应 X-Forwarded 值。
 # 监听 127.0.0.1:8081 -> 转发 127.0.0.1:8080（HTTP 与 WebSocket 均透传）
 import asyncio
+import re
 
 LISTEN = ("127.0.0.1", 8081)
 TARGET = ("127.0.0.1", 8080)
-EXTRA = b"X-Forwarded-Host: webvpn.wmu.edu.cn\r\nX-Forwarded-Proto: https\r\n"
+ORIGIN_RE = re.compile(rb"(?im)^origin:[ \t]*([a-z][a-z0-9+.\-]*)://([^\r\n]+)")
 
 async def pipe(r, w):
     try:
@@ -44,8 +48,14 @@ async def handle(cr, cw):
     if buf:
         low = buf.lower()
         if b"upgrade: websocket" in low and b"x-forwarded-host" not in low:
-            head, sep, rest = buf.partition(b"\r\n\r\n")
-            buf = head + b"\r\n" + EXTRA + b"\r\n" + rest
+            m = ORIGIN_RE.search(buf)
+            if m:
+                proto = m.group(1).strip().decode("latin1")
+                host = m.group(2).strip().decode("latin1")
+                extra = ("X-Forwarded-Proto: %s\r\nX-Forwarded-Host: %s\r\n" % (proto, host)).encode("latin1")
+                head, sep, rest = buf.partition(b"\r\n\r\n")
+                buf = head + b"\r\n" + extra + b"\r\n" + rest
+                print("injected XFH=%s XFP=%s" % (host, proto), flush=True)
         try:
             tw.write(buf)
             await tw.drain()
