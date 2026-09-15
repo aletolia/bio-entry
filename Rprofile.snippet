@@ -1,0 +1,12 @@
+
+# ==== bio-entry（服务器入口）auto-start ====
+local({
+  try({
+    if (interactive() && requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+      system2("bash", shQuote(path.expand("~/services/start.sh")),
+              wait = FALSE, stdout = FALSE, stderr = FALSE)
+      try(source(path.expand("~/services/entry.R"), local = TRUE), silent = TRUE)
+    }
+  }, silent = TRUE)
+})
+# ==== bio-entry end ====
